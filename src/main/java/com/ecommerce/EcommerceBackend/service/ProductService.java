@@ -7,6 +7,11 @@ import com.ecommerce.EcommerceBackend.repository.CategoryRepository;
 import com.ecommerce.EcommerceBackend.repository.ProductRepository;
 import com.ecommerce.EcommerceBackend.view.ProductResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -14,17 +19,19 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.repository.PagingAndSortingRepository;
 import org.springframework.stereotype.Service;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-public class ProductService {
+public class ProductService implements Serializable {
 
     @Autowired
     ProductRepository productRepository;
-
+    @Autowired
+CacheManager cacheManager;
     @Autowired
     CategoryRepository categoryRepository;
 
@@ -47,6 +54,7 @@ public class ProductService {
         return product;
     }
 
+    @Cacheable(value = "products", key = "#root.methodName + #pageNumber + #pageSize + #sortBy + #sortDir")
     public ProductResponse getAllProducts(int pageNumber, int pageSize, String sortBy, String sortDir) {
         Sort sort = null;
         if (!Arrays.asList("product_id", "product_name", "productDescription", "price", "quantity", "stock", "imageUrl", "category").contains(sortBy)) {
@@ -92,11 +100,20 @@ public class ProductService {
         return productDto;
     }
 
+    @Cacheable(value = "productDetails", key = "#productId")
     public ProductDto getProduct(int productId) {
         Product product = productRepository.findById(productId).orElseThrow(()-> new RuntimeException("Product Not found"));
         return toProductDto(product);
     }
 
+    @Caching(
+            put = { @CachePut(value = "productDetails", key = "#productId") },
+            evict = {
+                    @CacheEvict(value = "products", allEntries = true),
+                    @CacheEvict(value = "productByCategory", key = "#productDto.categoryId"),
+                    @CacheEvict(value = "productDetails", key = "#productId")
+            }
+    )
     public void updateProduct(int productId, ProductDto productDto){
         Product product = productRepository.findById(productId).orElseThrow(()-> new RuntimeException("Product Not found"));
         product.setProduct_name(productDto.getProduct_name());
@@ -108,11 +125,18 @@ public class ProductService {
         Category category = categoryRepository.findById(productDto.getCategoryId()).orElseThrow(()-> new RuntimeException("Category not found"));
         product.setCategory(category);
         productRepository.save(product);
+        cacheManager.getCache("productDetails").evict(productId);
     }
 
 
+    @Caching(evict = {
+            @CacheEvict(value = "productDetails", key = "#productId"),
+            @CacheEvict(value = "products", allEntries = true),
+            // If category information is stored in product details, consider evicting productByCategory cache as well
+    })
     public void deleteProduct(int productId){
         productRepository.deleteById(productId);
+        cacheManager.getCache("productDetails").evict(productId);
     }
 
     public List<ProductDto> getProductByCategory(int categoryId) {
@@ -122,6 +146,7 @@ public class ProductService {
         return  productDtoList;
     }
 
+    @Cacheable(value = "productByCategory", key = "#categoryId")
     public void saveImage(String uploadImage, Product product) {
         product.setImageUrl(uploadImage);
         ProductDto dto = toProductDto(product);
