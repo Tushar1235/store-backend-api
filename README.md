@@ -1,6 +1,6 @@
 # Store Backend
 
-Store Backend is a comprehensive Spring Boot project developed using Java 17, Spring Security, and Spring Data JPA. The application serves as the backend for an e-commerce site, providing essential features for managing categories, products, users, carts, and orders. It employs security measures like Basic Authentication and JWT Authentication, offers Swagger documentation, and supports the upload of product images.
+Store Backend is a comprehensive Spring Boot project developed using Java 17, Spring Security, and Spring Data JPA. The application serves as the backend for an e-commerce site, providing essential features for managing categories, products, users, carts, and orders. It employs security measures like Basic Authentication and JWT Authentication, offers Swagger documentation, supports the upload of product images, and implements Ehcache for caching.
 
 ## Features
 
@@ -51,6 +51,10 @@ Store Backend is a comprehensive Spring Boot project developed using Java 17, Sp
   ##### Pagination
 
   To enhance the user experience, product retrieval is paginated. This ensures efficient handling of large datasets and faster response times.
+
+  ##### Ehcache Implementation
+
+  Products are cached using Ehcache for optimized retrieval and improved performance.
 
 #### Users
 
